@@ -12,6 +12,142 @@ Pre-print: https://arxiv.org/abs/2307.14743
 
 Demo video: https://player.vimeo.com/video/840442741
 
+
+# Updated Instructions for Apple Silicon
+
+This fork has been created for those who want to test this project on Apple Silicon-based machines. I tested it on a MacBook Air M1 with 16 GB of RAM, and it works quite well.
+
+## Installation
+
+First, I recommend using a virtual environment like `virtualenv`.
+
+Inside your local copy of this repository, run the following commands:
+
+```bash
+virtualenv venv
+source venv/bin/activate
+```
+
+Next, proceed to install the dependencies.  
+**Note:** I have frozen all dependencies to ensure stable functionality over time.
+
+```bash
+pip install -r requirements.txt
+```
+
+## Running a Demo on Your Machine
+
+### Pre requisites
+
+I recommend using `ffmpeg` to quickly test out the functionality in your terminal. 
+
+You can easily install `ffmpeg` using `brew`:  
+1. Install Homebrew (if you haven't already) by following the instructions [here](https://brew.sh/).  
+2. Then, install `ffmpeg` using:
+
+```bash
+brew install ffmpeg
+```
+
+### Running Whisper Online Server
+
+Once `ffmpeg` is installed, in the terminal (with the virtual environment activated via `source venv/bin/activate`), run:
+
+```bash
+python whisper_online_server.py --model small.en --host localhost --port 8082 --task transcribe --lan en --min-chunk-size 1 --backend faster-whisper
+```
+
+To learn more about the available command-line options, run:
+
+```bash
+python whisper_online_server.py --help
+```
+
+You should see output like the following:
+
+```bash
+❯ python whisper_online_server.py --model small.en --host localhost --port 8082 --task transcribe --lan en --min-chunk-size 1 --backend faster-whisper
+Loading Whisper small.en model for en... done. It took 1.32 seconds.
+stdbuf was not found; communication with perl may hang due to stdio buffering.
+Whisper is not warmed up
+whisper-server-INFO: INFO: Listening on ('localhost', 8082)
+```
+
+Great! Now the server is waiting for streaming input.
+
+### Streaming Microphone Input
+
+To stream microphone input, we'll use `ffmpeg`. But first, we need to identify the ID of our microphone.  
+
+Open a **new terminal window** so you can operate between two terminals and check the list of available devices with:
+
+```bash
+ffmpeg -f avfoundation -list_devices true -i ""
+```
+
+The output would look something like this:
+
+```bash
+...
+[AVFoundation indev @ 0x123e05b20] AVFoundation audio devices:
+[AVFoundation indev @ 0x123e05b20] [0] Device 0
+[AVFoundation indev @ 0x123e05b20] [1] Device 1
+[AVFoundation indev @ 0x123e05b20] [2] Device 2
+[AVFoundation indev @ 0x123e05b20] [3] MacBook Air Microphone
+...
+```
+
+In this example I'm using a `MacBook Air` and the microphone is the device number `3`.  
+
+Now, use this command to start streaming audio from your microphone:
+
+```bash
+ffmpeg -f avfoundation -i :3 -ar 16000 -ac 1 -acodec pcm_s16le -f wav - | nc localhost 8082
+```
+
+If you're curious about the function of these flags, check out the [ffmpeg Command Explanation](#ffmpeg-command-explanation).
+
+
+Once you start talking, the Whisper online server will begin transcribing your speech into text in near real-time!  
+
+When you're finished, you can stop both processes by pressing `Ctrl + C` in both terminals.
+
+And that's it! You're all set!
+
+### ffmpeg Command Explanation
+
+```bash
+ffmpeg -f avfoundation -i :3 -ar 16000 -ac 1 -acodec pcm_s16le -f wav - | nc localhost 8082
+```
+  
+- **`-f avfoundation`**: Specifies the input format. In this case, we are using Apple's AVFoundation framework to capture input from audio (and video) devices on macOS.
+
+- **`-i :3`**: This specifies the input device. Here, we're using device ID `3`, which refers to the microphone (as determined from the previous device listing). The `:3` corresponds to the MacBook Air Microphone in this case.
+
+- **`-ar 16000`**: Sets the audio sample rate to 16,000 Hz (16 kHz). This is a common sample rate for speech processing to balance quality and performance.
+
+- **`-ac 1`**: Sets the number of audio channels to 1 (mono). Since you're only using a single microphone, stereo output is not necessary.
+
+- **`-acodec pcm_s16le`**: Specifies the audio codec to use. Here, `pcm_s16le` stands for Pulse Code Modulation (PCM) with 16-bit signed little-endian encoding, which is a common uncompressed audio format.
+
+- **`-f wav`**: Specifies the output format as WAV (a widely-used audio file format) that Whisper can accept. 
+
+- **`-`**: This tells `ffmpeg` to pipe the output directly to another command instead of saving to a file.
+
+- **`| nc localhost 8082`**: The pipe `|` takes the output from `ffmpeg` and sends it to `nc` (netcat), which streams the audio data to the listening server at `localhost` on port `8082` where the Whisper Online Server is listening. Netcat is a network utility used for reading from and writing to network connections.
+
+### In summary:
+
+This command uses `ffmpeg` to capture audio from your Mac's microphone, convert it into a format ready for streaming (mono, 16 kHz, PCM), and then uses `netcat` to send the audio data to the Whisper server running on `localhost:8082` for transcription.
+
+
+## Acknowledgments
+
+A big thank you to the original [Whisper Streaming project](https://github.com/ufal/whisper_streaming) and to the [Vincentwi's fork](https://github.com/vincentwi/whisper_streaming) for their contributions and inspiration. 
+
+
+# Original Instructions
+
 ## Installation
 
 1) ``pip install librosa`` -- audio processing library
